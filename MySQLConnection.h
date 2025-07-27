@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- #include "ConnectionPool.h"
+#include "ConnectionPool.h"
 #include <string>
 #include "mysql_connection.h"
 #include <cppconn/driver.h>
@@ -24,66 +24,48 @@
 using boost::shared_ptr;
 
 namespace active911 {
+    class MySQLConnection : public Connection {
+    public:
+        ~MySQLConnection() {
+            if (this->sql_connection) {
+                _DEBUG("MYSQL Destruct");
+
+                this->sql_connection->close();
+                this->sql_connection.reset(); // Release and destruct
+            }
+        };
+
+        boost::shared_ptr<sql::Connection> sql_connection;
+        int a;
+    };
 
 
-	class MySQLConnection : public Connection {
+    class MySQLConnectionFactory : public ConnectionFactory {
+    public:
+        MySQLConnectionFactory(std::string server, std::string username, std::string password) {
+            this->server = server;
+            this->username = username;
+            this->password = password;
+        };
 
-	public:
+        // Any exceptions thrown here should be caught elsewhere
+        shared_ptr<Connection> create() {
+            // Get the driver
+            sql::Driver *driver;
+            driver = get_driver_instance();
 
+            // Create the connection
+            shared_ptr<MySQLConnection> conn(new MySQLConnection());
 
-		~MySQLConnection() {
+            // Connect
+            conn->sql_connection = std::shared_ptr<sql::Connection>(driver->connect(this->server, this->username, this->password));
 
-			if(this->sql_connection) {
+            return boost::static_pointer_cast<Connection>(conn);
+        };
 
-				_DEBUG("MYSQL Destruct");
-
-				this->sql_connection->close();
-				this->sql_connection.reset(); 	// Release and destruct
-				
-			}
-
-		};
-
-		boost::shared_ptr<sql::Connection> sql_connection;
-		int a;
-	};
-
-
-	class MySQLConnectionFactory : public ConnectionFactory {
-
-	public:
-		MySQLConnectionFactory(std::string server, std::string username, std::string password) {
-
-			this->server=server;
-			this->username=username;
-			this->password=password;
-
-		};
-
-		// Any exceptions thrown here should be caught elsewhere
-		shared_ptr<Connection> create() {
-
-			// Get the driver
-			sql::Driver *driver;
-			driver=get_driver_instance();
-
-			// Create the connection
-			shared_ptr<MySQLConnection>conn(new MySQLConnection());
-
-			// Connect
-			conn->sql_connection=boost::shared_ptr<sql::Connection>(driver->connect(this->server,this->username,this->password));
-
-			return boost::static_pointer_cast<Connection>(conn);
-		};
-
-	private:
-		string server;
-		string username;
-		string password;
-	};
-
-
-
-
-
+    private:
+        string server;
+        string username;
+        string password;
+    };
 }
